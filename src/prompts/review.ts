@@ -119,5 +119,5 @@ export function formatGitHubComment(
 ${rawCommentBody}
 
 ---
-<sub>Reviewed by <a href="https://github.com/pavangeorge/pr-review-bot">PR Review Bot</a> · Powered by <a href="https://github.com/creact-labs/creact">CReact</a> + Claude</sub>`;
+<sub>Reviewed by <a href="https://github.com/pavangeorge/pr-review-bot">PR Review Bot</a> · Powered by <a href="https://github.com/creact-labs/creact">CReact</a> + Ollama</sub>`;
 }

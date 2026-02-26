@@ -37,7 +37,7 @@ PR Review Bot is built on [CReact](https://github.com/creact-labs/creact) — a 
 │        ├─ fetchDiff(pr.diffUrl)           via <GitHub>          │
 │        ├─ getReviewTier(pr.changedLines)  reactive signal       │
 │        ├─ buildReviewPrompt(pr, diff, tier)                     │
-│        ├─ Claude API call                 via Anthropic SDK     │
+│        ├─ Ollama API call                 (local)               │
 │        ├─ postReviewComment(...)          via <GitHub>          │
 │        └─ recordReview(...)              → persists to disk     │
 │      </ReviewPR>                                                │
@@ -105,7 +105,7 @@ One file. One function. Restart safety.
 
 PR size is a reactive signal that determines review depth:
 
-| Lines Changed | Tier | Claude Behavior |
+| Lines Changed | Tier | Ollama Behavior |
 |:---|:---|:---|
 | ≤ 50 | Quick ⚡ | Bug check, naming, null checks. 1-3 findings. |
 | 51–300 | Standard 🔍 | Logic, edge cases, error handling, perf red flags. ≤5 findings. |
@@ -119,12 +119,12 @@ This is done with a `getReviewTier()` function that maps `changedLines → Revie
 
 **Narrow token scopes**: The `GITHUB_TOKEN` only needs `repo` (to read PRs and post reviews). We don't request admin or write-to-settings scopes.
 
-**Diff truncation**: Diffs are truncated at 12,000 characters before being sent to Claude. This prevents both runaway API costs and prompt injection attacks via malicious file content.
+**Diff truncation**: Diffs are truncated at 12,000 characters before being sent to Ollama. This prevents both runaway context size and prompt injection attacks via malicious file content.
 
 ## Trade-offs and What's Next
 
 **Flat JSON state vs. database**: The current `FileBackend` is simple and zero-dependency. For a production deployment monitoring multiple high-traffic repos, you'd replace it with SQLite (via `better-sqlite3`) or Postgres. The interface is the same — only `loadState()` and `saveState()` need to change.
 
-**No retry logic**: If Claude or GitHub APIs are temporarily unavailable, the review is dropped. A production version would add exponential backoff via a CReact `<Retry>` wrapper component.
+**No retry logic**: If Ollama or GitHub APIs are temporarily unavailable, the review is dropped. A production version would add exponential backoff via a CReact `<Retry>` wrapper component.
 
 **Single-repo focus**: The bot monitors the repo specified in `GITHUB_REPO` env. Multi-repo support is architecturally simple — `pendingPRs` would become `Record<string, PullRequestEvent[]>` and the `<For>` would nest.

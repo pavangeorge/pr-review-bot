@@ -4,11 +4,11 @@
 
 ### AI-powered GitHub pull request reviews — durable, reactive, and restart-safe
 
-Built with **[CReact](https://github.com/creact-labs/creact)** + **Claude** (Anthropic)
+Built with **[CReact](https://github.com/creact-labs/creact)** + **Ollama** (local LLM)
 
 [![CReact](https://img.shields.io/badge/built%20with-CReact-blue?style=flat-square)](https://github.com/creact-labs/creact)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Claude](https://img.shields.io/badge/AI-Claude%20Opus%204-orange?style=flat-square)](https://anthropic.com)
+[![Ollama](https://img.shields.io/badge/AI-Ollama-orange?style=flat-square)](https://ollama.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](./LICENSE)
 
 </div>
@@ -23,13 +23,13 @@ Existing CI bots are **stateless and dumb**. They run, they exit, they forget. R
 
 ## The Solution
 
-PR Review Bot watches your GitHub repository for new pull requests and automatically posts a structured, actionable AI code review — using **Claude** to reason about logic, security, architecture, and style.
+PR Review Bot watches your GitHub repository for new pull requests and automatically posts a structured, actionable AI code review — using **Ollama** (local LLM) to reason about logic, security, architecture, and style.
 
 What makes it different:
 
 - **Durable** — Survived process restarts without re-reviewing or dropping PRs. State is persisted and loaded on startup.
 - **Reactive** — Built on CReact's signal-driven execution model. New PRs arrive → the reactive graph responds instantly.
-- **Tiered** — Small PRs get quick, focused feedback. Large architectural PRs get deep analysis. Claude adapts to context.
+- **Tiered** — Small PRs get quick, focused feedback. Large architectural PRs get deep analysis. Ollama adapts to context.
 - **Verified** — Every webhook is HMAC-SHA256 verified. No spoofed reviews.
 
 ---
@@ -49,7 +49,7 @@ What makes it different:
 [App]       ➕ Queuing PR #47 for review
 [GitHub]    📄 Fetched diff (8,432 chars)
 [ReviewPR]  📊 PR #47: 312 lines → "deep" review tier
-[ReviewPR]  🤖 Sending PR #47 to Claude...
+[ReviewPR]  🤖 Sending PR #47 to Ollama...
 [GitHub]    💬 Posted REQUEST_CHANGES review on PR #47 (review id: 1893245)
 [State]     ✅ Recorded review for PR #47 (org/repo)
 [App]       🗑️  Removed PR 47 from pending queue
@@ -98,7 +98,8 @@ export function App() {
                 {() => (
                   // ...run a full AI review
                   <ReviewPR pr={pr()} github={github}
-                            anthropicApiKey={ANTHROPIC_API_KEY}
+                            ollamaBaseUrl={OLLAMA_BASE_URL}
+                            ollamaModel={OLLAMA_MODEL}
                             onComplete={handleReviewComplete} />
                 )}
               </Show>
@@ -127,9 +128,9 @@ See [`docs/architecture.md`](./docs/architecture.md) for the full system diagram
 
 ## Review Tiers
 
-PR size is a reactive signal that determines how deep Claude goes:
+PR size is a reactive signal that determines how deep Ollama goes:
 
-| Lines Changed | Tier | What Claude Analyzes |
+| Lines Changed | Tier | What Ollama Analyzes |
 |:---|:---|:---|
 | ≤ 50 | ⚡ Quick | Obvious bugs, naming clarity, missing null checks |
 | 51–300 | 🔍 Standard | Logic, edge cases, error handling, performance red flags |
@@ -143,7 +144,7 @@ PR size is a reactive signal that determines how deep Claude goes:
 
 - Node.js 20.10+
 - A GitHub repository you control (to configure webhooks)
-- An Anthropic API key
+- [Ollama](https://ollama.ai) installed and running locally (`ollama serve`), with a model pulled (e.g. `ollama pull llama3.2`)
 - A GitHub Personal Access Token (PAT) with `repo` scope
 
 ### 1. Clone and install
@@ -162,12 +163,13 @@ cp .env.example .env
 
 Edit `.env` and fill in:
 ```env
-ANTHROPIC_API_KEY=sk-ant-...
 GITHUB_TOKEN=ghp_...
 GITHUB_WEBHOOK_SECRET=your_random_secret
 GITHUB_REPO=owner/repo
 WEBHOOK_PORT=3000
 ```
+
+Optional (Ollama defaults): `OLLAMA_BASE_URL=http://localhost:11434`, `OLLAMA_MODEL=llama3.2`. Ensure Ollama is running and the model is pulled (`ollama pull llama3.2`).
 
 ### 3. Expose your local server (for development)
 

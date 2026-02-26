@@ -7,7 +7,7 @@
 //   1. Fetches the PR diff from GitHub
 //   2. Determines the review tier (quick / standard / deep) based on PR size
 //   3. Builds the appropriate prompt
-//   4. Calls Claude via the Anthropic API
+//   4. Calls Ollama (local) to generate the review
 //   5. Posts the review back to GitHub
 //   6. Records the review durably to prevent re-runs
 //
@@ -20,7 +20,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { onMount } from "@creact-labs/creact";
-import Anthropic from "@anthropic-ai/sdk";
 import type { PullRequestEvent, ReviewResult } from "../types/index";
 import type { GitHubAPI } from "./github";
 import {
@@ -33,13 +32,14 @@ import { recordReview } from "./state";
 interface ReviewPRProps {
   pr: PullRequestEvent;
   github: GitHubAPI;
-  anthropicApiKey: string;
+  ollamaBaseUrl: string;
+  ollamaModel: string;
   onComplete: (prId: number) => void;
 }
 
 export function ReviewPR(props: ReviewPRProps) {
     onMount(async () => {
-      const { pr, github, anthropicApiKey, onComplete } = props;
+      const { pr, github, ollamaBaseUrl, ollamaModel, onComplete } = props;
 
       console.log(
         `\n[ReviewPR] 🔄 Starting review for PR #${pr.number}: "${pr.title}"`
@@ -83,27 +83,42 @@ export function ReviewPR(props: ReviewPRProps) {
       // ── Step 4: Build the prompt ───────────────────────────────────────────
       const { system, user } = buildReviewPrompt(pr, diff, tier);
 
-      // ── Step 5: Call Claude ────────────────────────────────────────────────
+      // ── Step 5: Call Ollama ────────────────────────────────────────────────
       let reviewResult: ReviewResult;
+      const maxTokens =
+        tier === "deep" ? 4096 : tier === "standard" ? 2048 : 1024;
       try {
-        const client = new Anthropic({ apiKey: anthropicApiKey });
-
-        console.log(`[ReviewPR] 🤖 Sending PR #${pr.number} to Claude...`);
-        const message = await client.messages.create({
-          model: "claude-opus-4-6",
-          max_tokens: tier === "deep" ? 4096 : tier === "standard" ? 2048 : 1024,
-          system,
-          messages: [{ role: "user", content: user }],
+        console.log(`[ReviewPR] 🤖 Sending PR #${pr.number} to Ollama...`);
+        const res = await fetch(`${ollamaBaseUrl}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: user },
+            ],
+            stream: false,
+            options: { num_predict: maxTokens },
+          }),
         });
 
-        const raw =
-          message.content[0].type === "text" ? message.content[0].text : "";
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Ollama ${res.status}: ${text}`);
+        }
+
+        const data = (await res.json()) as { message?: { content?: string } };
+        const raw = data.message?.content ?? "";
 
         reviewResult = parseReviewResult(raw, pr);
       } catch (err) {
         console.error(
-          `[ReviewPR] ❌ Claude API error for PR #${pr.number}:`,
+          `[ReviewPR] ❌ Ollama API error for PR #${pr.number}:`,
           err
+        );
+        console.error(
+          `[ReviewPR] 💡 Ensure Ollama is running (ollama serve) and model is pulled (ollama pull ${ollamaModel})`
         );
         onComplete(pr.id);
         return;
@@ -163,13 +178,13 @@ function parseReviewResult(
   pr: PullRequestEvent
 ): ReviewResult {
   try {
-    // Strip any accidental markdown fences Claude might add
+    // Strip any accidental markdown fences the model might add
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const parsed = JSON.parse(cleaned) as ReviewResult;
     return parsed;
   } catch (err) {
     console.warn(
-      `[ReviewPR] ⚠️  Could not parse Claude JSON response for PR #${pr.number}, using fallback`
+      `[ReviewPR] ⚠️  Could not parse Ollama JSON response for PR #${pr.number}, using fallback`
     );
     // Graceful fallback — never crash because of a parse error
     return {

@@ -4,7 +4,7 @@
 // This file is the heart of the submission. Read it like a sentence:
 //
 //   "Listen for webhooks on port 3000. For each open pull request that hasn't
-//    been reviewed yet, use Claude to review it and post the result to GitHub.
+//    been reviewed yet, use Ollama to review it and post the result to GitHub.
 //    Show review history on a dashboard at port 8080."
 //
 // That's it. That's the whole bot. The complexity lives in the components —
@@ -27,17 +27,18 @@ import { HttpServer } from "./components/http-server";
 // We fail fast on missing config. A bot that silently misconfigures is worse
 // than one that refuses to start with a clear error message.
 
-const ANTHROPIC_API_KEY = requireEnv("ANTHROPIC_API_KEY");
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.2";
 const GITHUB_TOKEN = requireEnv("GITHUB_TOKEN");
 const WEBHOOK_SECRET = requireEnv("GITHUB_WEBHOOK_SECRET");
 const WEBHOOK_PORT = parseInt(process.env.WEBHOOK_PORT ?? "3000", 10);
 const DASHBOARD_PORT = WEBHOOK_PORT + 1;
 
-// if (!ANTHROPIC_API_KEY || !GITHUB_TOKEN || !WEBHOOK_SECRET) {
+// if (!GITHUB_TOKEN || !WEBHOOK_SECRET) {
 //   console.error(
 //     "❌ Missing required environment variables.\n" +
 //       "   Please copy .env.example to .env and fill in your values.\n" +
-//       "   Required: ANTHROPIC_API_KEY, GITHUB_TOKEN, GITHUB_WEBHOOK_SECRET"
+//       "   Required: GITHUB_TOKEN, GITHUB_WEBHOOK_SECRET"
 //   );
 //   process.exit(1);
 // }
@@ -148,7 +149,8 @@ export function App() {
                                         <ReviewPR
                                             pr={pr()}
                                             github={github}
-                                            anthropicApiKey={ANTHROPIC_API_KEY}
+                                            ollamaBaseUrl={OLLAMA_BASE_URL}
+                                            ollamaModel={OLLAMA_MODEL}
                                             onComplete={handleReviewComplete}
                                         />
                                     )}
