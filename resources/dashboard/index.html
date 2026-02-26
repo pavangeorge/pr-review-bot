@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PR Review Bot</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #0a0a0a; }
+    .mono { font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; }
+    .verdict-approve { color: #3fb950; }
+    .verdict-changes { color: #f85149; }
+    .verdict-comment { color: #d29922; }
+    .badge-approve { background: rgba(63,185,80,.15); color: #3fb950; border: 1px solid rgba(63,185,80,.3); }
+    .badge-changes { background: rgba(248,81,73,.15); color: #f85149; border: 1px solid rgba(248,81,73,.3); }
+    .badge-comment { background: rgba(210,153,34,.15); color: #d29922; border: 1px solid rgba(210,153,34,.3); }
+    .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3fb950;
+             box-shadow: 0 0 6px #3fb950; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  </style>
+</head>
+<body>
+
+<nav class="navbar border-bottom" style="background:#111; border-color:#222 !important;">
+  <div class="container-fluid px-4">
+    <span class="navbar-brand fw-semibold">
+      🤖 PR Review Bot
+    </span>
+    <span class="text-secondary small">
+      <span class="pulse me-2"></span>
+      Live · webhook on <code class="text-secondary">:3000</code>
+    </span>
+  </div>
+</nav>
+
+<div class="container py-5" style="max-width: 800px;">
+  <div id="app"></div>
+</div>
+
+<script type="module">
+import { h, render } from "https://esm.sh/preact@10.26.4";
+import { useState, useEffect } from "https://esm.sh/preact@10.26.4/hooks";
+import htm from "https://esm.sh/htm@3.1.1";
+
+const html = htm.bind(h);
+const API = "";  // same origin — HttpServer serves both UI and API
+
+function verdictBadge(verdict) {
+  const map = {
+    approve:          { cls: 'badge-approve', label: '✅ Approved' },
+    request_changes:  { cls: 'badge-changes', label: '🔴 Changes Requested' },
+    comment:          { cls: 'badge-comment',  label: '💬 Commented' },
+  };
+  const { cls, label } = map[verdict] || { cls: '', label: verdict };
+  return html`<span class="badge rounded-pill px-2 py-1 mono small ${cls}">${label}</span>`;
+}
+
+function StatCard({ label, value, cls }) {
+  return html`
+    <div class="p-4 rounded border" style="background:#111; border-color:#222 !important;">
+      <div class="text-secondary text-uppercase small fw-medium mb-2" style="letter-spacing:.5px">${label}</div>
+      <div class="stat-value ${cls}">${value ?? '—'}</div>
+    </div>
+  `;
+}
+
+function App() {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(false);
+
+  async function load() {
+    setError(false);
+    try {
+      const res = await fetch(`${API}/api/reviews`);
+      if (!res.ok) throw new Error(res.statusText);
+      setData(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // Auto-refresh every 15 seconds so judges see live updates
+    const id = setInterval(load, 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (loading) return html`
+    <div class="text-center text-secondary py-5">
+      <div class="spinner-border spinner-border-sm me-2"></div>Loading...
+    </div>
+  `;
+
+  if (error) return html`
+    <div class="text-center text-danger py-5">
+      <div style="font-size:2rem">⚠️</div>
+      <div class="mt-2">Cannot connect to API</div>
+      <button class="btn btn-outline-secondary btn-sm mt-3" onClick=${load}>Retry</button>
+    </div>
+  `;
+
+  const { reviews, stats, total } = data;
+
+  return html`
+    <!-- Stats row -->
+    <div class="row g-3 mb-5">
+      <div class="col-6 col-md-3">
+        <${StatCard} label="Total" value=${total} cls="" />
+      </div>
+      <div class="col-6 col-md-3">
+        <${StatCard} label="Approved" value=${stats.approve} cls="verdict-approve" />
+      </div>
+      <div class="col-6 col-md-3">
+        <${StatCard} label="Changes" value=${stats.request_changes} cls="verdict-changes" />
+      </div>
+      <div class="col-6 col-md-3">
+        <${StatCard} label="Comments" value=${stats.comment} cls="verdict-comment" />
+      </div>
+    </div>
+
+    <!-- Review history -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="text-secondary text-uppercase small fw-medium mb-0" style="letter-spacing:.5px">
+        Review History
+      </h2>
+      <button class="btn btn-outline-secondary btn-sm" onClick=${load}>⟳ Refresh</button>
+    </div>
+
+    <div class="border rounded overflow-hidden" style="border-color:#222 !important;">
+      ${reviews.length === 0 && html`
+        <div class="text-secondary text-center p-5">
+          <div style="font-size:2rem">🔍</div>
+          <div class="mt-2">No reviews yet — open a PR to trigger the bot</div>
+        </div>
+      `}
+
+      ${[...reviews].reverse().map((r, i) => html`
+        <div class="p-3 d-flex justify-content-between align-items-start gap-3"
+             style="border-bottom:${i < reviews.length - 1 ? '1px solid #1e1e1e' : 'none'}; background:#0d0d0d;">
+          <div>
+            <span class="fw-semibold me-2">PR <span class="mono">#${r.prNumber}</span></span>
+            ${verdictBadge(r.verdict)}
+            <div class="mono text-secondary small mt-1">${r.repo}</div>
+          </div>
+          <div class="text-secondary small text-end text-nowrap">
+            ${new Date(r.reviewedAt).toLocaleString()}
+          </div>
+        </div>
+      `)}
+    </div>
+
+    <div class="text-secondary text-center small mt-4">
+      Auto-refreshes every 15s · Built with
+      <a href="https://github.com/creact-labs/creact" class="text-secondary">CReact</a>
+    </div>
+  `;
+}
+
+render(html`<${App} />`, document.getElementById("app"));
+</script>
+</body>
+</html>
