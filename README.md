@@ -143,9 +143,9 @@ PR size is a reactive signal that determines how deep Ollama goes:
 ### Prerequisites
 
 - Node.js 20.10+
-- A GitHub repository you control (to configure webhooks)
+- A **target repository** — the GitHub repo whose pull requests you want the bot to review. This should be a repo **other than** this one (pr-review-bot). You'll configure the bot to watch this repo and create a webhook there so PR events are sent to the bot.
 - [Ollama](https://ollama.ai) installed and running locally (`ollama serve`), with a model pulled (e.g. `ollama pull llama3.2`)
-- A GitHub Personal Access Token (PAT) with `repo` scope
+- A GitHub Personal Access Token for the target repo (see below)
 
 ### 1. Clone and install
 
@@ -162,6 +162,11 @@ cp .env.example .env
 ```
 
 Edit `.env` and fill in:
+
+- **`GITHUB_TOKEN`** — A fine-grained Personal Access Token for the **target repo** (see [Creating a GitHub token](#creating-a-github-token) below).
+- **`GITHUB_WEBHOOK_SECRET`** — A random string used to verify webhook payloads (e.g. `openssl rand -hex 20`).
+- **`GITHUB_REPO`** — The **target repository** in `owner/repo` form (the repo whose PRs you want reviewed; not this pr-review-bot repo).
+
 ```env
 GITHUB_TOKEN=ghp_...
 GITHUB_WEBHOOK_SECRET=your_random_secret
@@ -170,6 +175,24 @@ WEBHOOK_PORT=3000
 ```
 
 Optional (Ollama defaults): `OLLAMA_BASE_URL=http://localhost:11434`, `OLLAMA_MODEL=llama3.2`. Ensure Ollama is running and the model is pulled (`ollama pull llama3.2`).
+
+#### Creating a GitHub token
+
+The bot needs a **fine-grained** Personal Access Token (not a classic PAT) with minimal permissions:
+
+| Permission    | Level          | Why |
+|---------------|----------------|-----|
+| **Pull requests** | Read and write | Read PR metadata and post review comments |
+| **Contents**       | Read only      | Fetch the diff via the API |
+
+**Steps:**
+
+1. **GitHub** → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+2. Set **Resource owner** to your account.
+3. Under **Repository access**, choose **Only select repositories** and pick your **target repo** (the one whose PRs you want reviewed).
+4. Under **Permissions**, set **Pull requests** to *Read and write* and **Contents** to *Read-only*. Leave everything else with no access.
+5. Set an expiration (e.g. 90 days for a competition or short-term use).
+6. Generate the token and paste it into `.env` as `GITHUB_TOKEN`.
 
 ### 3. Expose your local server (for development)
 
@@ -185,11 +208,13 @@ smee --url https://smee.io/YOUR_CHANNEL_ID --target http://localhost:3000/webhoo
 
 ### 4. Configure the GitHub webhook
 
-1. Go to your repository → **Settings** → **Webhooks** → **Add webhook**
-2. Payload URL: your smee URL (or your server's public URL in production)
-3. Content type: `application/json`
-4. Secret: same value as `GITHUB_WEBHOOK_SECRET` in your `.env`
-5. Events: select **"Pull requests"** only
+Create the webhook **in your target repository** (the repo you set as `GITHUB_REPO`), not in the pr-review-bot repo. That way, when someone opens or updates a PR in the target repo, GitHub will send events to your bot.
+
+1. Go to your **target repo** on GitHub → **Settings** → **Webhooks** → **Add webhook**
+2. **Payload URL**: your smee URL (or your server's public URL in production)
+3. **Content type**: `application/json`
+4. **Secret**: same value as `GITHUB_WEBHOOK_SECRET` in your `.env`
+5. **Which events**: select **"Pull requests"** only
 
 ### 5. Start the bot
 
@@ -201,7 +226,7 @@ The bot is now live:
 - **Webhook receiver**: `http://localhost:3000/webhook`
 - **Dashboard**: `http://localhost:3001`
 
-Open a PR in your configured repository and watch it get reviewed.
+Open a PR in your **target repository** and watch it get reviewed.
 
 ---
 
