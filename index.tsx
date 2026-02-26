@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { render } from '@creact-labs/creact';
 import { FileMemory } from './src/memory';
 import { App } from './src/app';

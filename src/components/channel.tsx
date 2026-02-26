@@ -132,8 +132,8 @@ export function Channel(props: ChannelProps) {
       }
     });
 
-    return null;
-}
+    return <></>;
+  }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

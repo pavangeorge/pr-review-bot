@@ -45,7 +45,7 @@ export interface GitHubAPI {
 
 export function GitHub(props: GitHubProps) {
     let octokit: Octokit;
-    let botLogin: string = "";
+    let botLogin: string = "";    
 
     onMount(async () => {
       octokit = new Octokit({ auth: props.token });

@@ -99,7 +99,7 @@ export function App() {
           Must be mounted first. StateManager registers the useAsyncOutput
           hook that persists review records through FileMemory. All other
           components depend on isReviewed() which reads from this store. */}
-            <StateManager />
+            <StateManager key="pr-review-bot-state" />
 
             {/* ── Webhook Receiver ──────────────────────────────────────────────
             Listens on WEBHOOK_PORT for GitHub webhook events.

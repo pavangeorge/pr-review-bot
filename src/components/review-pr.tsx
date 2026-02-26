@@ -153,7 +153,7 @@ export function ReviewPR(props: ReviewPRProps) {
       onComplete(pr.id);
     });
 
-    return null;
+    return <></>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
