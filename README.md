@@ -17,7 +17,7 @@ Built with **[CReact](https://github.com/creact-labs/creact)** + **Ollama** (loc
 
 ## The Problem
 
-Every engineering team carries a silent tax: **pull requests sit unreviewed for hours**. Context switches are expensive. Junior developers get inconsistent feedback. Senior engineers burn review time on style issues instead of architecture. And none of the existing tools — GitHub Actions, linters, static analyzers — actually *think* about your code.
+Every engineering team carries a silent tax: **pull requests sit unreviewed for hours**. Context switches are expensive. Junior developers get inconsistent feedback. Senior engineers burn review time on style issues instead of architecture. And none of the existing tools — GitHub Actions, linters, static analyzers — actually _think_ about your code.
 
 Existing CI bots are **stateless and dumb**. They run, they exit, they forget. Restart your webhook server mid-review? It either re-reviews PRs it already handled, or drops work entirely. There's no durable memory of what's been done.
 
@@ -80,9 +80,14 @@ CReact lets you express this entire workflow as a **declarative JSX component tr
 export function App() {
   return (
     <>
+      {/* State is persisted and loaded on startup */}
+      <StateManager key="pr-review-bot-state" />
       {/* Listen for GitHub webhooks */}
-      <Channel port={3000} webhookSecret={WEBHOOK_SECRET}
-               onPullRequest={handlePullRequest} />
+      <Channel
+        port={3000}
+        webhookSecret={WEBHOOK_SECRET}
+        onPullRequest={handlePullRequest}
+      />
 
       {/* Review history dashboard */}
       <Dashboard port={3001} />
@@ -97,10 +102,13 @@ export function App() {
               <Show when={() => !isReviewed(pr().id)}>
                 {() => (
                   // ...run a full AI review
-                  <ReviewPR pr={pr()} github={github}
-                            ollamaBaseUrl={OLLAMA_BASE_URL}
-                            ollamaModel={OLLAMA_MODEL}
-                            onComplete={handleReviewComplete} />
+                  <ReviewPR
+                    pr={pr()}
+                    github={github}
+                    ollamaBaseUrl={OLLAMA_BASE_URL}
+                    ollamaModel={OLLAMA_MODEL}
+                    onComplete={handleReviewComplete}
+                  />
                 )}
               </Show>
             )}
@@ -112,7 +120,7 @@ export function App() {
 }
 ```
 
-Read it like a sentence: *"For each pending PR that hasn't been reviewed, run a review."*
+Read it like a sentence: _"For each pending PR that hasn't been reviewed, run a review."_
 
 **`<For>`** maps each pending PR to its own independent `ReviewPR` component instance — enabling concurrent reviews.
 
@@ -130,11 +138,11 @@ See [`docs/architecture.md`](./docs/architecture.md) for the full system diagram
 
 PR size is a reactive signal that determines how deep Ollama goes:
 
-| Lines Changed | Tier | What Ollama Analyzes |
-|:---|:---|:---|
-| ≤ 50 | ⚡ Quick | Obvious bugs, naming clarity, missing null checks |
-| 51–300 | 🔍 Standard | Logic, edge cases, error handling, performance red flags |
-| > 300 | 🏗️ Deep | Architecture, security, scalability, breaking changes |
+| Lines Changed | Tier        | What Ollama Analyzes                                     |
+| :------------ | :---------- | :------------------------------------------------------- |
+| ≤ 50          | ⚡ Quick    | Obvious bugs, naming clarity, missing null checks        |
+| 51–300        | 🔍 Standard | Logic, edge cases, error handling, performance red flags |
+| > 300         | 🏗️ Deep     | Architecture, security, scalability, breaking changes    |
 
 ---
 
@@ -180,17 +188,17 @@ Optional (Ollama defaults): `OLLAMA_BASE_URL=http://localhost:11434`, `OLLAMA_MO
 
 The bot needs a **fine-grained** Personal Access Token (not a classic PAT) with minimal permissions:
 
-| Permission    | Level          | Why |
-|---------------|----------------|-----|
+| Permission        | Level          | Why                                       |
+| ----------------- | -------------- | ----------------------------------------- |
 | **Pull requests** | Read and write | Read PR metadata and post review comments |
-| **Contents**       | Read only      | Fetch the diff via the API |
+| **Contents**      | Read only      | Fetch the diff via the API                |
 
 **Steps:**
 
 1. **GitHub** → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
 2. Set **Resource owner** to your account.
 3. Under **Repository access**, choose **Only select repositories** and pick your **target repo** (the one whose PRs you want reviewed).
-4. Under **Permissions**, set **Pull requests** to *Read and write* and **Contents** to *Read-only*. Leave everything else with no access.
+4. Under **Permissions**, set **Pull requests** to _Read and write_ and **Contents** to _Read-only_. Leave everything else with no access.
 5. Set an expiration (e.g. 90 days for a competition or short-term use).
 6. Generate the token and paste it into `.env` as `GITHUB_TOKEN`.
 
@@ -223,6 +231,7 @@ npm run dev
 ```
 
 The bot is now live:
+
 - **Webhook receiver**: `http://localhost:3000/webhook`
 - **Dashboard**: `http://localhost:3001`
 
