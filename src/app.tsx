@@ -34,14 +34,6 @@ const WEBHOOK_SECRET = requireEnv("GITHUB_WEBHOOK_SECRET");
 const WEBHOOK_PORT = parseInt(process.env.WEBHOOK_PORT ?? "3000", 10);
 const DASHBOARD_PORT = WEBHOOK_PORT + 1;
 
-// if (!GITHUB_TOKEN || !WEBHOOK_SECRET) {
-//   console.error(
-//     "❌ Missing required environment variables.\n" +
-//       "   Please copy .env.example to .env and fill in your values.\n" +
-//       "   Required: GITHUB_TOKEN, GITHUB_WEBHOOK_SECRET"
-//   );
-//   process.exit(1);
-// }
 function requireEnv(name: string): string {
     const v = process.env[name];
     if (v === undefined || v === "") {
